@@ -1,0 +1,107 @@
+import 'dart:math' as math;
+import 'package:flutter/material.dart';
+
+/// Shows a breathing-style info dialog with unified styling across screens.
+/// Returns true if the user confirmed with "Don't show again" checked; otherwise false/null.
+Future<bool?> showBreathingStyleInfoDialog({
+  required BuildContext context,
+  required String title,
+  String? description,
+  List<String> tips = const [],
+  bool showDontShowAgain = false,
+  String dontShowLabel = "Don't show again",
+  String confirmText = 'Got it',
+}) {
+  final screenSize = MediaQuery.of(context).size;
+  return showDialog<bool>(
+    context: context,
+    barrierDismissible: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setLocalState) {
+        bool doNotShowAgain = false;
+        final theme = Theme.of(ctx);
+        final maxWidth = math.min(screenSize.width * 0.9, 420.0);
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: maxWidth,
+                maxHeight: screenSize.height * 0.9,
+              ),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.shadowColor.withValues(alpha: 0.2),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    if (description != null)
+                      Text(description!),
+                    if (tips.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      const Text('Tips:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: tips
+                                .map((t) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 4),
+                                      child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('• ', style: TextStyle(fontSize: 16)),
+                                          Expanded(child: Text(t)),
+                                        ],
+                                      ),
+                                    ))
+                                .toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                    if (showDontShowAgain) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: doNotShowAgain,
+                            onChanged: (val) => setLocalState(() => doNotShowAgain = val ?? false),
+                          ),
+                          Expanded(child: Text(dontShowLabel)),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(ctx, doNotShowAgain),
+                        child: Text(confirmText),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+

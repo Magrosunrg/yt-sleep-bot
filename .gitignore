@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+
+# Binaries / Large Files
+*.exe
+*.zip
+*.mp4
+*.mp3
+*.wav
+!assets/brown_noise_loop.wav
+!assets/backgrounds/*.mp4
+!voices/*.mp3
+!samples/*.mp3
+
+# Generated Content
+generated_shorts/
+temp_*/
+sim_log*.txt
+test_*.txt
+test_*.mp4
+
+# Browser Profiles / Data
+selenium_profile/
+tiktok_chrome_profile/
+tiktok_user_data/
+tiktok_cookies.pkl
+
+# Secrets (IMPORTANT: Do not commit these if repo is public)
+client_secret*.json
+token.pickle
+insta_session.json
+*.pem
+*.key
+
+# Excluded Features
+kokoro_weights/
+tts_manager.py
+
+# Unrelated Projects (Exclude from Git)
+Game/
+Cooldown-main/
+Earn-Tap-main/
+Ai-couple-vid-gen-main/

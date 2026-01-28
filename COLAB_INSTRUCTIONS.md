@@ -8,7 +8,7 @@ Since you are running this locally first, you need to push this code to a GitHub
 1.  Create a new repository on GitHub (e.g., `yt-sleep-bot`).
 2.  Run these commands in your local terminal:
     ```bash
-    git remote add origin https://github.com/YOUR_USERNAME/yt-sleep-bot.git
+    git remote add origin https://github.com/Magrosunrg/yt-sleep-bot.git
     git branch -M main
     git push -u origin main
     ```
@@ -19,7 +19,7 @@ Open a new Google Colab notebook and run this cell to clone your code and instal
 
 ```python
 # 1. Clone Repository
-!git clone https://github.com/YOUR_USERNAME/yt-sleep-bot.git
+!git clone https://github.com/Magrosunrg/yt-sleep-bot.git
 %cd yt-sleep-bot
 
 # 2. System Dependencies

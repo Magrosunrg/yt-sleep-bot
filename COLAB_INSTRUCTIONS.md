@@ -32,7 +32,7 @@ Open a new Google Colab notebook and run this cell to clone your code and instal
 # 4. Install Python Packages
 !pip install -r requirements.txt
 !pip install moviepy==1.0.3
-!pip install diffusers transformers accelerate
+!pip install diffusers transformers accelerate sentencepiece protobuf
 !pip install -U torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
 
 # 5. Install Ollama (Local LLM)
@@ -72,7 +72,7 @@ Generate a story with AI visuals (no movie clips needed):
 ```bash
 !python colab_runner.py story --prompt "A cyberpunk detective in the rain" --use_ai
 ```
-*   `--use_ai`: Generates 5-8s animated clips for each scene using Stable Diffusion.
+*   `--use_ai`: Generates 5-8s AI video clips for each scene using Wan 2.1 (T2V 1.3B) for genuine AI video generation.
 *   `--output`: (Optional) Specify filename.
 
 ## Troubleshooting

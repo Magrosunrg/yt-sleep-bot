@@ -212,3 +212,10 @@ What is her favorite type of music?
 Does she prefer spending time outdoors or indoors?
 What is her go-to coffee order?
 How does she like to start her day?
+What is his go-to order at a coffee shop?
+Does he prefer watching sports or playing video games during free time?
+What is his favorite type of music to listen to?
+What is her favorite type of music?
+Does she prefer going to the beach or mountains on vacation?
+What is her go-to coffee order?
+Does she prefer trying new foods or sticking to what she knows and loves?

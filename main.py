@@ -1,19 +1,32 @@
 # author: Giorgio
 # date: 23.08.2024
-# topic: TikTok-Voice-TTS
-# version: 1.3
+# topic: TikTok-Voice-TTS -> Edge-TTS Replacement
+# version: 1.4
 
-from codecs import BOM_UTF32
 import argparse
+import asyncio
+import edge_tts
 from typing import Optional
-# the script in the directory
-from tiktok_voice import tts, Voice
+import os
+
+async def _run_tts(text, voice, output_file):
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(output_file)
+
+def tts(text, voice, output_file, play=False):
+    try:
+        asyncio.run(_run_tts(text, voice, output_file))
+        print(f"Generated: {output_file}")
+        if play:
+            print("Playback not implemented in this replacement version.")
+    except Exception as e:
+        print(f"Error generating TTS: {e}")
 
 def main():
     # adding arguments
-    parser = argparse.ArgumentParser(description='TikTok TTS')
+    parser = argparse.ArgumentParser(description='Edge TTS (Replacing TikTok TTS)')
     parser.add_argument('-t', help='text input')
-    parser.add_argument('-v', help='voice selection')
+    parser.add_argument('-v', help='voice selection', default='en-US-AriaNeural')
     parser.add_argument('-o', help='output filename', default='output.mp3')
     parser.add_argument('-txt', help='text input from a txt file', type=argparse.FileType('r', encoding="utf-8"))
     parser.add_argument('-play', help='play sound after generating audio', action='store_true')
@@ -22,15 +35,15 @@ def main():
 
     # checking if given values are valid
     if not args.t and not args.txt:
-        raise ValueError("insert a valid text or txt file")
+        # If no arguments provided, print help
+        parser.print_help()
+        return
 
     if args.t and args.txt:
         raise ValueError("only one input type is possible")
     
-    voice: Optional[Voice] = Voice.from_string(args.v)
-    if voice == None:
-        raise ValueError("no valid voice has been selected")
-
+    voice = args.v
+    
     # executing script
     if args.t:
         tts(args.t, voice, args.o, args.play)

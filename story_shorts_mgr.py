@@ -45,6 +45,11 @@ from popular_events_mgr import create_caption_clip
 from scene_matcher import SceneMatcher
 from web_researcher import WebResearcher
 
+try:
+    from ai_visual_generator import AIVisualGenerator
+except ImportError:
+    AIVisualGenerator = None
+
 def truncate_for_clip(text, max_words=50):
     """Truncates text to a safe length for CLIP (approx 77 tokens)."""
     if not text: return ""
@@ -922,13 +927,13 @@ def generate_edge_audio(text, output_file, voice="en-US-ChristopherNeural"):
         print(f"❌ Edge TTS failed: {e}")
         return False, None
 
-def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAULT_MODEL, status_callback=None):
+def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAULT_MODEL, status_callback=None, use_ai_visuals=False):
     """
     Main workflow:
     1. Identify Subject & Web Research (Filmsite/Ranker)
     2. Generate Script (enriched with research)
     3. Split into sentences
-    4. Download Source Material
+    4. Download Source Material (OR Generate AI Visuals)
     5. For each sentence: Generate Audio + Extract Visual + Create Caption
     6. Assemble
     """
@@ -990,33 +995,39 @@ def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAUL
         except Exception as ex:
             log(f"   ⚠️ Web Research warning: {ex}")
 
-    # 1. Download Source Material (Moved UP - We need visuals first!)
+    # 1. Download Source Material OR Prepare AI Generation
     log(f"🎬 Identified Subject Context: {subject}")
     source_video_path = None
     
-    # Try automated search first
-    try:
-        source_video_path = download_source_material(subject)
-    except Exception as e:
-        log(f"⚠️ Automated download failed: {e}")
+    if not use_ai_visuals:
+        # Try automated search first
+        try:
+            source_video_path = download_source_material(subject)
+        except Exception as e:
+            log(f"⚠️ Automated download failed: {e}")
 
-    # Manual Fallback if automation failed
-    if not source_video_path:
-        log("\n❌ Automated search failed (Cloudflare blocks).")
-        log(f"👉 Please search for '{subject}' on 1337x.to (or any torrent site) in your normal browser.")
-        magnet_link = input("🧲 Paste the MAGNET LINK here (or press Enter to skip/abort): ").strip()
-        
-        if magnet_link and magnet_link.startswith("magnet:?"):
-            log("✅ Magnet link received. Starting download...")
-            from torrent_manager import TorrentManager
-            tm = TorrentManager()
-            source_video_path = tm.download_torrent(magnet_link)
-        else:
-            log("❌ No valid magnet link provided.")
+        # Manual Fallback if automation failed
+        if not source_video_path:
+            log("\n❌ Automated search failed (Cloudflare blocks).")
+            log(f"👉 Please search for '{subject}' on 1337x.to (or any torrent site) in your normal browser.")
+            magnet_link = input("🧲 Paste the MAGNET LINK here (or press Enter to skip/abort): ").strip()
+            
+            if magnet_link and magnet_link.startswith("magnet:?"):
+                log("✅ Magnet link received. Starting download...")
+                from torrent_manager import TorrentManager
+                tm = TorrentManager()
+                source_video_path = tm.download_torrent(magnet_link)
+            else:
+                log("❌ No valid magnet link provided.")
 
-    if not source_video_path:
-        log("❌ CRITICAL: No source material found (movie download failed).")
-        return "Failed: No source material."
+        if not source_video_path:
+            log("❌ CRITICAL: No source material found (movie download failed).")
+            return "Failed: No source material."
+    else:
+        if AIVisualGenerator is None:
+             log("❌ Error: AI Visuals requested but AIVisualGenerator could not be imported. Check dependencies (torch, diffusers).")
+             return "Failed: Missing AI dependencies."
+        log("🤖 AI Visuals Mode Enabled: Skipping movie download.")
 
     # 2. Generate Visual Storyboard
     storyboard_scenes = get_visual_storyboard(subject, model, research_context)
@@ -1026,82 +1037,94 @@ def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAUL
         log("❌ Storyboard is empty. Aborting video creation.")
         return "Failed: Empty storyboard."
     
-    # 3. Find Visual Matches (Scene Matching)
+    # 3. Find Visual Matches (Scene Matching) OR Use AI Placeholders
     matched_scenes = []
     source_clip_ref = None
     scene_matcher = None
     
-    try:
-        source_clip_ref = VideoFileClip(source_video_path)
-        log(f"✅ Loaded Source Video: {source_video_path} ({source_clip_ref.duration:.1f}s)")
-        
-        log("   🧠 Initializing Scene Matcher (CLIP)...")
-        scene_matcher = SceneMatcher(source_video_path)
-        
-        # Match loop
-        last_end_time = 0.0
-        safe_max_time = source_clip_ref.duration - 30 # Avoid credits
-        
-        for i, scene_desc in enumerate(storyboard_scenes):
-            log(f"🔍 Finding match for Scene {i+1}: '{scene_desc}'...")
+    if use_ai_visuals:
+        log("🤖 Converting Storyboard directly to AI Visual Tasks...")
+        for desc in storyboard_scenes:
+            matched_scenes.append({
+                "description": desc,
+                "type": "ai_visual",
+                # Dummy times
+                "start": 0,
+                "end": 0,
+                "score": 1.0
+            })
+    else:
+        try:
+            source_clip_ref = VideoFileClip(source_video_path)
+            log(f"✅ Loaded Source Video: {source_video_path} ({source_clip_ref.duration:.1f}s)")
             
-            # Determine search window (Chronological enforcement)
-            # Opening scene MUST be early. Ending scene MUST be late.
-            search_start = last_end_time
-            search_end = safe_max_time
+            log("   🧠 Initializing Scene Matcher (CLIP)...")
+            scene_matcher = SceneMatcher(source_video_path)
             
-            is_opening = (i == 0)
-            is_ending = (i == len(storyboard_scenes) - 1)
+            # Match loop
+            last_end_time = 0.0
+            safe_max_time = source_clip_ref.duration - 30 # Avoid credits
             
-            if is_opening:
-                search_end = safe_max_time * 0.15 # First 15%
-            elif is_ending:
-                search_start = max(last_end_time, safe_max_time * 0.85) # Last 15%
-            
-            # Search
-            # Truncate for CLIP safety
-            query = truncate_for_clip(scene_desc)
-            
-            # Debug types
-            log(f"   🐛 Debug: query='{query}' ({type(query)}), start={search_start} ({type(search_start)}), end={search_end} ({type(search_end)})")
-            
-            best_match = scene_matcher.find_best_match(
-                query, 
-                min_start_time=float(search_start), 
-                max_end_time=float(search_end)
-            )
-            
-            if best_match:
-                # Handle dict return from SceneMatcher
-                if isinstance(best_match, dict):
-                    start_t = best_match['start']
-                    end_t = best_match['end']
-                    score = best_match['score']
-                else:
-                    # Fallback if it returns tuple (legacy)
-                    start_t, end_t, score = best_match
+            for i, scene_desc in enumerate(storyboard_scenes):
+                log(f"🔍 Finding match for Scene {i+1}: '{scene_desc}'...")
                 
-                # Validate score (relaxed for Filmsite/mandatory scenes)
-                threshold = 0.20 if (is_opening or is_ending) else 0.22
+                # Determine search window (Chronological enforcement)
+                # Opening scene MUST be early. Ending scene MUST be late.
+                search_start = last_end_time
+                search_end = safe_max_time
                 
-                if score > threshold:
-                    log(f"   ✅ Match Found: {start_t:.1f}s - {end_t:.1f}s (Score: {score:.3f})")
-                    matched_scenes.append({
-                        "description": scene_desc,
-                        "start": start_t,
-                        "end": end_t,
-                        "score": score,
-                        "type": "scene"
-                    })
-                    last_end_time = max(last_end_time, start_t + 2.0) # Move forward
+                is_opening = (i == 0)
+                is_ending = (i == len(storyboard_scenes) - 1)
+                
+                if is_opening:
+                    search_end = safe_max_time * 0.15 # First 15%
+                elif is_ending:
+                    search_start = max(last_end_time, safe_max_time * 0.85) # Last 15%
+                
+                # Search
+                # Truncate for CLIP safety
+                query = truncate_for_clip(scene_desc)
+                
+                # Debug types
+                log(f"   🐛 Debug: query='{query}' ({type(query)}), start={search_start} ({type(search_start)}), end={search_end} ({type(search_end)})")
+                
+                best_match = scene_matcher.find_best_match(
+                    query, 
+                    min_start_time=float(search_start), 
+                    max_end_time=float(search_end)
+                )
+                
+                if best_match:
+                    # Handle dict return from SceneMatcher
+                    if isinstance(best_match, dict):
+                        start_t = best_match['start']
+                        end_t = best_match['end']
+                        score = best_match['score']
+                    else:
+                        # Fallback if it returns tuple (legacy)
+                        start_t, end_t, score = best_match
+                    
+                    # Validate score (relaxed for Filmsite/mandatory scenes)
+                    threshold = 0.20 if (is_opening or is_ending) else 0.22
+                    
+                    if score > threshold:
+                        log(f"   ✅ Match Found: {start_t:.1f}s - {end_t:.1f}s (Score: {score:.3f})")
+                        matched_scenes.append({
+                            "description": scene_desc,
+                            "start": start_t,
+                            "end": end_t,
+                            "score": score,
+                            "type": "scene"
+                        })
+                        last_end_time = max(last_end_time, start_t + 2.0) # Move forward
+                    else:
+                        log(f"   ⚠️ Low score ({score:.3f}). Skipping scene to maintain quality.")
                 else:
-                    log(f"   ⚠️ Low score ({score:.3f}). Skipping scene to maintain quality.")
-            else:
-                 log("   ❌ No valid match found within constraints.")
+                     log("   ❌ No valid match found within constraints.")
 
-    except Exception as e:
-        log(f"❌ Scene Matching Failed: {e}")
-        return f"Failed: {e}"
+        except Exception as e:
+            log(f"❌ Scene Matching Failed: {e}")
+            return f"Failed: {e}"
 
     if not matched_scenes:
         return "Failed: No matching scenes found."
@@ -1133,7 +1156,8 @@ def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAUL
     # 5. Assembly Loop
     clips = []
     temp_files = []
-    
+    ai_gen = None # Initialize outside loop for persistence
+
     # Handle Ranker Quote Insertion (if requested in script)
     # The script generation might have added [PAUSE] line? 
     # Actually generate_narrative_from_visuals returns simple lines.
@@ -1205,17 +1229,47 @@ def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAUL
             except:
                 pass
         
-        # Extract Clip
+        # Branch for AI Visuals or Movie Clip
+        sub = None
+        
+        if scene_data.get('type') == 'ai_visual':
+            if ai_gen is None:
+                ai_gen = AIVisualGenerator()
+                
+            visual_desc = scene_data['description']
+            log(f"   🤖 Generating AI Visual: '{visual_desc}'")
+            visual_path = f"temp_ai_visual_{i}.mp4"
+            
+            # Enforce 5-8s rule: Max of audio length or 7s
+            # If audio is short, we extend the video to 7s
+            target_dur = max(seg_duration, 7.0)
+            
+            # Update seg_duration to match video if we extended it
+            seg_duration = target_dur 
+            
+            success = ai_gen.generate_animated_video(visual_desc, visual_path, duration=target_dur)
+            
+            if success and os.path.exists(visual_path):
+                temp_files.append(visual_path)
+                sub = VideoFileClip(visual_path)
+                # Trim to exact duration just in case
+                sub = sub.subclip(0, seg_duration)
+            else:
+                log("   ❌ AI Generation Failed. Using Black Clip.")
+                sub = ColorClip(size=(1920, 1080), color=(0,0,0), duration=seg_duration)
+                
+        else:
+            # Movie Clip Extraction
+            try:
+                # Ensure we don't go past video end
+                end_t = min(start_t + seg_duration, source_clip_ref.duration)
+                sub = source_clip_ref.subclip(start_t, end_t)
+            except Exception as e:
+                log(f"   ❌ Extraction Error: {e}")
+                sub = ColorClip(size=(1920, 1080), color=(0,0,0), duration=seg_duration)
+
+        # Common Assembly Logic
         try:
-            # Ensure we don't go past video end
-            end_t = min(start_t + seg_duration, source_clip_ref.duration)
-            
-            # If scene_data['end'] is significantly different, we might want to respect the visual match?
-            # But usually we want to sync to audio.
-            # We trust start_t from CLIP.
-            
-            sub = source_clip_ref.subclip(start_t, end_t)
-            
             # Audio Attach
             if not is_pause_segment and os.path.exists(audio_path):
                  aud = AudioFileClip(audio_path)

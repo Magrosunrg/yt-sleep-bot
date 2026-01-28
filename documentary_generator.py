@@ -19,17 +19,25 @@ except ImportError:
     except ImportError:
         # Try direct import for MoviePy v2
         from moviepy import VideoFileClip, ImageClip, ColorClip, CompositeVideoClip, AudioFileClip, VideoClip, vfx, concatenate_videoclips, concatenate_audioclips, CompositeAudioClip
-from tiktok_voice import tts, Voice
+import asyncio
+import edge_tts
+
 import tempfile
 from script_generator import ScriptGenerator
 from media_manager import MediaManager
 
-def generate_tts_audio(text, filename, voice=Voice.US_MALE_1):
-    """Generates TTS audio using TikTok Voice."""
+def generate_tts_audio(text, filename, voice="en-US-ChristopherNeural"):
+    """Generates TTS audio using Edge TTS."""
     try:
         if os.path.exists(filename):
             os.remove(filename)
-        tts(text, voice, filename)
+            
+        async def _run_edge():
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(filename)
+            
+        asyncio.run(_run_edge())
+        
         return filename if os.path.exists(filename) else None
     except Exception as e:
         print(f"TTS Error: {e}")

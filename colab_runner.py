@@ -31,6 +31,7 @@ def run_sleep_video(args):
         print(f"   Facts: {num_facts}")
         print(f"   Target Duration: {duration}s")
         print(f"   Output: {output}")
+        print(f"   ⚡ Optimization: FFmpeg Filters Enabled (Fast Render)")
         
         # Check for custom script file
         custom_script = None
@@ -45,7 +46,8 @@ def run_sleep_video(args):
             output_file=output,
             outro_duration=duration,
             custom_script=custom_script,
-            progress_callback=progress_callback
+            progress_callback=progress_callback,
+            use_ai_visuals=getattr(args, 'use_ai', False)
         )
         print(f"\n✅ Done! Video saved to: {os.path.abspath(output)}")
         
@@ -75,9 +77,10 @@ def run_story_short(args):
             print(f"   [STATUS] {msg}")
             
         story_shorts_mgr.create_story_video(
-            prompt=prompt,
+            user_prompt=prompt,
             output_file=output,
-            status_callback=status_update
+            status_callback=status_update,
+            use_ai_visuals=getattr(args, 'use_ai', False)
         )
         print(f"\n✅ Done! Video saved to: {os.path.abspath(output)}")
         
@@ -88,6 +91,9 @@ def run_story_short(args):
 
 def main():
     parser = argparse.ArgumentParser(description="Colab Runner for YT Bot")
+    # Global arguments (can be used before subcommand)
+    parser.add_argument("--use_ai", action="store_true", help="Use AI Visuals (Global Flag)")
+    
     subparsers = parser.add_subparsers(dest="mode", help="Mode: sleep or story")
     
     # Sleep Mode
@@ -97,11 +103,14 @@ def main():
     sleep_parser.add_argument("--duration", type=int, default=7200, help="Target duration in seconds (default: 7200)")
     sleep_parser.add_argument("--output", type=str, help="Output filename")
     sleep_parser.add_argument("--script_file", type=str, help="Path to custom script text file")
+    # Add use_ai here too for compatibility if user puts it after subcommand
+    sleep_parser.add_argument("--use_ai", action="store_true", help="Use AI Visuals")
     
     # Story Mode
     story_parser = subparsers.add_parser("story", help="Generate Story Short")
     story_parser.add_argument("--prompt", type=str, required=True, help="Story prompt")
     story_parser.add_argument("--output", type=str, help="Output filename")
+    story_parser.add_argument("--use_ai", action="store_true", help="Use AI Visuals instead of movie clips")
     
     args = parser.parse_args()
     

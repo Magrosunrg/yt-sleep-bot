@@ -504,7 +504,7 @@ class LongVideoManager:
             
         return video_path
 
-    def create_long_video(self, topic, num_facts=15, output_file="sleep_video.mp4", outro_duration=7200, custom_script=None, progress_callback=None):
+    def create_long_video(self, topic, num_facts=15, output_file="sleep_video.mp4", outro_duration=7200, custom_script=None, progress_callback=None, use_ai_visuals=False):
         # Interpret outro_duration as Total Target Duration for "Facts Throughout" mode
         target_duration = outro_duration 
         print(f"🌙 Starting Sleep Video Generation: {topic} (Target: {target_duration}s)")
@@ -621,8 +621,19 @@ class LongVideoManager:
         final_audio = CompositeAudioClip(audio_clips + [brown_noise]).set_duration(target_duration)
         
         # 4. Visuals (Animated Realistic Video - AI Generated)
-        print("🎬 Generating animated-realistic background video...")
-        bg_video_path = self.generate_long_animated_background(topic)
+        bg_video_path = None
+        
+        if use_ai_visuals:
+            print("🤖 AI Mode: Generating animated-realistic background video (skipping YouTube)...")
+            bg_video_path = self.generate_long_animated_background(topic)
+        else:
+            # Default: Try YouTube first for high quality real footage
+            print("🎥 Standard Mode: Searching for background video on YouTube...")
+            bg_video_path = self.search_long_background(topic, min_duration=60)
+            
+            if not bg_video_path:
+                 print("   ⚠️ YouTube search failed/empty. Fallback to AI generation.")
+                 bg_video_path = self.generate_long_animated_background(topic)
         
         visual_clips = []
         temp_bg_clips = []
@@ -700,8 +711,9 @@ class LongVideoManager:
         final_video = final_video.set_audio(final_audio)
         
         # Apply Sleep Effects (Dimmer + Saturation)
-        print("💤 Applying Sleep Effects (Dimmer & Saturation)...")
-        final_video = self.apply_sleep_effects(final_video)
+        # OPTIMIZATION: We skip Python-based effects (slow) and use FFmpeg filters (fast)
+        # print("💤 Applying Sleep Effects (Dimmer & Saturation)...")
+        # final_video = self.apply_sleep_effects(final_video)
         
         # FINAL DIMENSION SAFETY CHECK
         # Ensure even dimensions for yuv420p
@@ -735,7 +747,8 @@ class LongVideoManager:
                 audio_codec="aac",
                 threads=4,
                 preset="ultrafast", # Speed up long render
-                ffmpeg_params=["-pix_fmt", "yuv420p"] # Ensure compatibility with Windows Media Player
+                # Optimized Sleep Effects: Contrast 0.7 (dimmer), Saturation 0.8
+                ffmpeg_params=["-pix_fmt", "yuv420p", "-vf", "eq=contrast=0.7:saturation=0.8"] 
             )
             if progress_callback: progress_callback(100)
         except Exception as e:

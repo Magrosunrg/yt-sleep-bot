@@ -35,9 +35,10 @@ except ImportError:
         except ImportError:
             # If all imports fail, provide helpful error
             raise ImportError("Could not import MoviePy components. Please check your MoviePy installation.")
-from tiktok_voice import tts, Voice
 from tts_chatterbox import generate_cloned_audio
 from duckduckgo_search import DDGS
+import asyncio
+import edge_tts
 
 # Default colors
 BG_COLOR_PINK = (255, 192, 203) # Pink
@@ -107,8 +108,8 @@ def download_image_from_ddg(query, filename):
         print(f"⚠️ Image Download Failed for '{query}': {e}")
     return None
 
-def generate_audio(text, filename, voice=Voice.FEMALE_EMOTIONAL, reference_audio=None):
-    """Generates TTS audio using TikTok Voice and applies post-processing. Supports cloning if reference provided."""
+def generate_audio(text, filename, voice="en-US-AriaNeural", reference_audio=None):
+    """Generates TTS audio using Chatterbox (cloning) or Edge TTS (standard)."""
     
     # 0. Try Cloning first if reference provided
     if reference_audio and os.path.exists(reference_audio):
@@ -119,59 +120,39 @@ def generate_audio(text, filename, voice=Voice.FEMALE_EMOTIONAL, reference_audio
                 
             print(f"🎙️ Attempting voice cloning using {reference_audio}...")
             if generate_cloned_audio(text, filename, reference_audio):
-                # Post-process cloned audio too? Maybe yes to normalize loudness
+                # Post-process cloned audio too
                 if post_process_audio(filename):
                     return filename
                 return filename
             else:
-                print("⚠️ Cloning failed. Falling back to TikTok TTS.")
+                print("⚠️ Cloning failed. Falling back to Edge TTS.")
         except Exception as e:
             print(f"⚠️ Cloning Error: {e}")
 
-    for attempt in range(3):
-        try:
-            if os.path.exists(filename):
-                try:
-                    os.remove(filename)
-                except Exception:
-                    pass
+    # 1. Edge TTS
+    try:
+        if os.path.exists(filename):
+            try: os.remove(filename)
+            except: pass
             
-            tts(text, voice, filename)
+        print(f"🎙️ Generating Edge TTS ({voice}): {text[:30]}...")
+        async def _run_edge():
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(filename)
             
-            # 1. Check if file exists and has size
-            if not os.path.exists(filename) or os.path.getsize(filename) < 100:
-                print(f"⚠️ TTS attempt {attempt+1} failed: Invalid file size ({filename}).")
-                time.sleep(1.5)
-                continue
-                
-            # 2. Check for text error content in file (TikTok API sometimes writes error as text)
-            try:
-                with open(filename, 'rb') as f:
-                    header = f.read(10)
-                    # MP3 sync word is usually 0xFFE0 (first 11 bits set). ID3 tag starts with 'ID3'.
-                    # Error text usually starts with "{" or "<".
-                    if header.startswith(b'{') or header.startswith(b'<') or b'error' in header.lower():
-                        print(f"⚠️ TTS attempt {attempt+1} failed: File contains error text.")
-                        time.sleep(1.5)
-                        continue
-            except Exception:
-                pass
-
-            # 3. Post-process
-            if post_process_audio(filename):
-                return filename
-            else:
-                # If post-process failed but file exists, it might be bad.
-                # We retry to be safe.
-                print(f"⚠️ Post-processing failed for {filename}. Retrying...")
-                time.sleep(1.5)
-                continue
-                
-        except Exception as e:
-            print(f"❌ TTS Error (Attempt {attempt+1}): {e}")
-            time.sleep(1.5)
+        asyncio.run(_run_edge())
+        
+        if os.path.exists(filename) and os.path.getsize(filename) > 100:
+             # Post-process
+             if post_process_audio(filename):
+                 return filename
+             return filename
+        else:
+            print(f"❌ Edge TTS failed (empty file): {filename}")
             
-    print(f"❌ All TTS attempts failed for text: {text[:20]}...")
+    except Exception as e:
+        print(f"❌ Edge TTS Error: {e}")
+        
     return None
 
 USED_QUESTIONS_FILE = "used_quiz_questions.txt"

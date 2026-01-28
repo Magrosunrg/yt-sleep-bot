@@ -2,7 +2,8 @@ import os
 import random
 import requests
 from mutagen.mp3 import MP3
-from tiktok_voice import tts, Voice
+import edge_tts
+import asyncio
 import re
 import string
 import whisper  
@@ -199,10 +200,14 @@ def post_process_audio(input_path: str) -> bool:
         return False
 
 
-def speak_and_save_tiktok(text, filename="reddit_tts.mp3", voice: Voice = Voice.FEMALE_EMOTIONAL):
-    """Generate TTS and apply calming post-processing.
+async def _generate_edge_tts(text, filename, voice):
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(filename)
 
-    Default voice set to FEMALE_EMOTIONAL for a more natural, warm tone.
+def speak_and_save(text, filename="reddit_tts.mp3", voice="en-US-AriaNeural"):
+    """Generate TTS using Edge TTS and apply calming post-processing.
+    
+    Default voice set to en-US-AriaNeural.
     """
     for attempt in range(3):
         try:
@@ -212,7 +217,7 @@ def speak_and_save_tiktok(text, filename="reddit_tts.mp3", voice: Voice = Voice.
                 except Exception:
                     pass
             
-            tts(text, voice, filename)
+            asyncio.run(_generate_edge_tts(text, filename, voice))
             
             # 1. Check if file exists and has size
             if not os.path.exists(filename) or os.path.getsize(filename) < 100:
@@ -220,20 +225,9 @@ def speak_and_save_tiktok(text, filename="reddit_tts.mp3", voice: Voice = Voice.
                 time.sleep(1.5)
                 continue
             
-            # 2. Check for text error content
-            try:
-                with open(filename, 'rb') as f:
-                    header = f.read(10)
-                    if header.startswith(b'{') or header.startswith(b'<') or b'error' in header.lower():
-                        print(f"⚠️ TTS attempt {attempt+1} failed: File contains error text.")
-                        time.sleep(1.5)
-                        continue
-            except Exception:
-                pass
-
             # 3. Post-process
             if post_process_audio(filename):
-                print(f"✅ TikTok TTS audio saved to {filename}")
+                print(f"✅ Edge TTS audio saved to {filename}")
                 return True
             else:
                 print(f"⚠️ Post-processing failed for {filename}. Retrying...")
@@ -312,7 +306,7 @@ def generate_valid_reddit_audio():
 
         for i, part in enumerate(parts):
             filename = f"reddit_tts_part{i+1}.mp3"
-            if not speak_and_save_tiktok(part, filename):
+            if not speak_and_save(part, filename):
                 print(f"❌ TTS generation failed for part {i+1}, retrying whole post...\n")
                 break
 

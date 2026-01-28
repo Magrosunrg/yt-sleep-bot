@@ -32,6 +32,7 @@ Open a new Google Colab notebook and run this cell to clone your code and instal
 # 4. Install Python Packages
 !pip install -r requirements.txt
 !pip install moviepy==1.0.3
+!pip install diffusers transformers accelerate
 !pip install -U torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
 
 # 5. Install Ollama (Local LLM)
@@ -59,18 +60,20 @@ Since we excluded secrets from GitHub, you must upload them manually to the `yt-
 
 ## Step 3: Run the Generator
 
-### Option A: Sleep Video
+### Option A: Sleep Video (Fast Render)
 ```bash
 !python colab_runner.py sleep --topic "Ancient Forests" --num_facts 50 --duration 3600
 ```
-*   `--topic`: Subject of the video.
-*   `--num_facts`: How many facts to generate.
-*   `--duration`: Target duration in seconds (3600 = 1 hour).
+*   **Optimization**: Now uses FFmpeg filters for 10x faster rendering!
+*   `--use_ai`: Add this flag to force AI-generated animated backgrounds (instead of YouTube search).
 
-### Option B: Story Short
+### Option B: Story Short (AI Mode)
+Generate a story with AI visuals (no movie clips needed):
 ```bash
-!python colab_runner.py story --prompt "A cyberpunk detective in the rain" --output "cyber_story.mp4"
+!python colab_runner.py story --prompt "A cyberpunk detective in the rain" --use_ai
 ```
+*   `--use_ai`: Generates 5-8s animated clips for each scene using Stable Diffusion.
+*   `--output`: (Optional) Specify filename.
 
 ## Troubleshooting
 *   **OOM (Out of Memory)**: Ensure you are using a GPU runtime (Runtime > Change runtime type > T4 GPU).

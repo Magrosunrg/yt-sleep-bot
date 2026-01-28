@@ -23,3 +23,7 @@ tweepy>=4.14.0
 chatterbox-tts
 torch
 torchaudio
+torchvision
+diffusers
+transformers
+accelerate

@@ -32,6 +32,7 @@ Open a new Google Colab notebook and run this cell to clone your code and instal
 # 4. Install Python Packages
 !pip install -r requirements.txt
 !pip install moviepy==1.0.3
+!pip install -U torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
 
 # 5. Install Ollama (Local LLM)
 !curl -fsSL https://ollama.com/install.sh | sh

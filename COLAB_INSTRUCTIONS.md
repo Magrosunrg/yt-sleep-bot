@@ -47,12 +47,13 @@ import os
 os.environ["OLLAMA_HOST"] = "127.0.0.1:11434"
 
 print("🚀 Starting Ollama Server...")
-process = subprocess.Popen("ollama serve", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+# Use nohup and full path to ensure it runs in background and persists
+process = subprocess.Popen("nohup /usr/local/bin/ollama serve > ollama.log 2>&1 &", shell=True)
 time.sleep(10) # Give it more time to start
 
 # 7. Pull Model
 print("📥 Pulling llama3 model...")
-!ollama pull llama3
+!/usr/local/bin/ollama pull llama3
 print("✅ Ready!")
 ```
 

@@ -41,9 +41,14 @@ Open a new Google Colab notebook and run this cell to clone your code and instal
 # 6. Start Ollama in Background
 import subprocess
 import time
+import os
+
+# Set OLLAMA_HOST to bind to localhost
+os.environ["OLLAMA_HOST"] = "127.0.0.1:11434"
+
 print("🚀 Starting Ollama Server...")
 process = subprocess.Popen("ollama serve", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-time.sleep(5)
+time.sleep(10) # Give it more time to start
 
 # 7. Pull Model
 print("📥 Pulling llama3 model...")

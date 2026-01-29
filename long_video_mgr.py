@@ -67,9 +67,9 @@ class LongVideoManager:
         # Refined prompt to match "Sleepy Science Channel" style
         
         prompt = (
-            f"Write a deep, narrative sleep script about '{topic}' for the 'Sleepy Science Channel'.\n"
+            f"Write a deep, narrative sleep script about '{topic}' for the 'Night Lab Stories' channel.\n"
             f"Style Guide:\n"
-            f"- Begin with 'Hello there and welcome to the sleepy science channel. Tonight we're going to drift into...'\n"
+            f"- Begin with 'Hello there and welcome to Night Lab Stories. Tonight we're going to drift into...'\n"
             f"- The tone should be 'academic yet poetic', soothing, and philosophical. Like a gentle documentary.\n"
             f"- Structure the content as a continuous narrative journey, not just a list of facts.\n"
             f"- Focus on mysteries, deep time, vast scales, and unanswered questions.\n"
@@ -108,7 +108,7 @@ class LongVideoManager:
         
         # Intro
         intro = (
-            f"Hello there. Welcome to a special session of the Sleepy Science Channel. "
+            f"Hello there. Welcome to a special session of Night Lab Stories. "
             f"Tonight, we have prepared a collection of the most relaxing facts about {topic} "
             f"to help you drift off into a deep sleep. Let go of the day, close your eyes, "
             f"and let these truths wash over you."

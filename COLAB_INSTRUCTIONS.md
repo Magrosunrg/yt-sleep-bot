@@ -24,7 +24,7 @@ Open a new Google Colab notebook and run this cell to clone your code and instal
 
 # 2. System Dependencies
 !apt-get update
-!apt-get install -y imagemagick ffmpeg aria2
+!apt-get install -y imagemagick ffmpeg aria2 zstd
 
 # 3. Fix ImageMagick Policy
 !sed -i '/<policy domain="path" rights="none" pattern="@\*"\/>/d' /etc/ImageMagick-6/policy.xml

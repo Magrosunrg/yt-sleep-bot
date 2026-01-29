@@ -950,6 +950,7 @@ def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAUL
             status_callback(msg)
 
     # 0. Identify Subject & Research
+    voice_ref_path = None # Initialize to avoid UnboundLocalError
     subject = extract_subject_matter(user_prompt, model)
     
     # Fallback if Subject Extraction Failed completely
@@ -1238,24 +1239,36 @@ def create_story_video(user_prompt, output_file="story_output.mp4", model=DEFAUL
                 
             visual_desc = scene_data['description']
             log(f"   🤖 Generating AI Visual: '{visual_desc}'")
-            visual_path = f"temp_ai_visual_{i}.mp4"
             
             # Enforce 5-8s rule: Max of audio length or 7s
-            # If audio is short, we extend the video to 7s
-            target_dur = max(seg_duration, 7.0)
+            target_dur = max(seg_duration, 5.0)
             
-            # Update seg_duration to match video if we extended it
-            seg_duration = target_dur 
+            # 1. Generate Image
+            img_path = f"temp_ai_img_{i}.png"
+            # Use 'realistic' style for Story Shorts
+            generated_img = ai_gen.generate_image(visual_desc, img_path, style="realistic")
             
-            success = ai_gen.generate_animated_video(visual_desc, visual_path, duration=target_dur)
-            
-            if success and os.path.exists(visual_path):
-                temp_files.append(visual_path)
-                sub = VideoFileClip(visual_path)
-                # Trim to exact duration just in case
-                sub = sub.subclip(0, seg_duration)
+            if generated_img and os.path.exists(generated_img):
+                # 2. Apply Ken Burns Effect
+                visual_path = f"temp_ai_visual_{i}.mp4"
+                video_path = ai_gen.create_ken_burns_video(generated_img, visual_path, duration=target_dur)
+                
+                if video_path and os.path.exists(video_path):
+                    temp_files.append(generated_img)
+                    temp_files.append(video_path)
+                    
+                    sub = VideoFileClip(video_path)
+                    # Ensure duration matches exactly
+                    if sub.duration != seg_duration:
+                        # Loop or trim? Ken Burns is exact duration usually.
+                        # If audio is shorter, trim. If longer, loop? 
+                        # create_ken_burns_video takes duration arg.
+                        pass
+                else:
+                     log("   ❌ Ken Burns Generation Failed. Using Static Image.")
+                     sub = ImageClip(generated_img).set_duration(seg_duration)
             else:
-                log("   ❌ AI Generation Failed. Using Black Clip.")
+                log("   ❌ AI Image Generation Failed. Using Black Clip.")
                 sub = ColorClip(size=(1920, 1080), color=(0,0,0), duration=seg_duration)
                 
         else:

@@ -622,10 +622,98 @@ class LongVideoManager:
         
         # 4. Visuals (Animated Realistic Video - AI Generated)
         bg_video_path = None
+        visual_clips = []
+        temp_bg_clips = []
+        file_paths = [] # Initialize here for scope access
         
         if use_ai_visuals:
-            print("🤖 AI Mode: Generating animated-realistic background video (skipping YouTube)...")
-            bg_video_path = self.generate_long_animated_background(topic)
+            print("🤖 AI Mode: Generating synced Ken Burns visuals...")
+            
+            # Create temp dir
+            ai_vis_dir = "temp_ai_visuals"
+            if not os.path.exists(ai_vis_dir):
+                os.makedirs(ai_vis_dir)
+                
+            script_path = os.path.join(os.path.dirname(__file__), "ai_visual_generator.py")
+            
+            # Iterate through segments to generate synced visuals
+            i = 0
+            while i < len(segments):
+                seg_text = segments[i]
+                
+                # Check if current segment is a pause (shouldn't happen if we consume them, but safety)
+                if isinstance(seg_text, str) and re.match(r'^\[PAUSE_\d+\]$', seg_text):
+                    i += 1
+                    continue
+                
+                # Get Audio Duration
+                af = audio_files[i]
+                try:
+                    # Quick probe
+                    temp_audioclip = AudioFileClip(af)
+                    dur = temp_audioclip.duration
+                    temp_audioclip.close()
+                except:
+                    dur = 5.0
+                    
+                # Calculate total visual duration (Audio + Gap + Following Pauses)
+                gap = 0.5 if not is_relaxing_facts_mode else 0
+                total_dur = dur + gap
+                
+                # Look ahead for pauses
+                j = i + 1
+                while j < len(segments):
+                    next_seg = segments[j]
+                    if isinstance(next_seg, str) and re.match(r'^\[PAUSE_\d+\]$', next_seg):
+                        try:
+                            p_dur = int(next_seg.replace("[PAUSE_", "").replace("]", ""))
+                            total_dur += p_dur
+                        except:
+                            total_dur += 2.0
+                        j += 1
+                    else:
+                        break
+                
+                # Generate Ken Burns Video
+                # Sanitize filename
+                safe_name = "".join([c if c.isalnum() else "_" for c in seg_text[:20]])
+                out_path = os.path.join(ai_vis_dir, f"kb_{i}_{safe_name}.mp4")
+                
+                print(f"   🎬 Generating Visual for segment {i} ({total_dur:.1f}s): {seg_text[:40]}...")
+                
+                try:
+                    # Force GC
+                    gc.collect()
+                    
+                    cmd = [
+                        sys.executable, script_path,
+                        "--topic", seg_text,
+                        "--output", out_path,
+                        "--mode", "ken_burns",
+                        "--duration", str(total_dur)
+                    ]
+                    
+                    subprocess.run(cmd, check=True)
+                    
+                    if os.path.exists(out_path):
+                        vc = VideoFileClip(out_path)
+                        visual_clips.append(vc)
+                        file_paths.append(out_path)
+                    else:
+                        print("   ❌ AI Gen Failed (No Output). Using fallback.")
+                        raise Exception("No output")
+                        
+                except Exception as e:
+                    print(f"   ⚠️ Visual Gen Error: {e}. Using Grid Fallback.")
+                    # Fallback: Grid Image
+                    # We need to generate a static image or use grid
+                    # Just use grid for now to save complexity
+                    fallback_clip = ImageClip(self.grid_bg_file).set_duration(total_dur)
+                    visual_clips.append(fallback_clip)
+                
+                # Advance index
+                i = j
+
         else:
             # Default: Try YouTube first for high quality real footage
             print("🎥 Standard Mode: Searching for background video on YouTube...")
@@ -633,10 +721,13 @@ class LongVideoManager:
             
             if not bg_video_path:
                  print("   ⚠️ YouTube search failed/empty. Fallback to AI generation.")
-                 bg_video_path = self.generate_long_animated_background(topic)
-        
-        visual_clips = []
-        temp_bg_clips = []
+                 # Since we removed the old loop generator, we fallback to grid or we could use the new logic?
+                 # But standard mode usually implies ONE background.
+                 # Let's fallback to the new logic if YouTube fails? 
+                 # Or just use grid.
+                 # User said "make ONLY the collab version to have an ai video maker"
+                 # So standard mode should probably just use grid if YT fails.
+                 pass
         
         if bg_video_path and os.path.exists(bg_video_path):
             print(f"   ✅ Using background video: {bg_video_path}")
@@ -725,7 +816,6 @@ class LongVideoManager:
             print(f"   ✅ Fixed dimensions: {final_video.w}x{final_video.h}")
         
         # Track files for cleanup
-        file_paths = [] 
         # Don't delete cached backgrounds in assets/backgrounds
         if bg_video_path and "assets/backgrounds" not in bg_video_path.replace("\\", "/"):
              file_paths.append(bg_video_path)
@@ -775,6 +865,12 @@ class LongVideoManager:
                 shutil.rmtree(audio_dir)
             except Exception as e:
                 print(f"⚠️ Cleanup Warning: Could not remove {audio_dir}: {e}")
+                
+        if os.path.exists("temp_ai_visuals"):
+            try:
+                shutil.rmtree("temp_ai_visuals")
+            except Exception as e:
+                print(f"⚠️ Cleanup Warning: Could not remove temp_ai_visuals: {e}")
                 
         for p in file_paths:
             try: os.remove(p)

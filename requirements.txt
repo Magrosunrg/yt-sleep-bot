@@ -27,3 +27,6 @@ torchvision
 diffusers
 transformers
 accelerate
+sentencepiece
+protobuf
+bitsandbytes

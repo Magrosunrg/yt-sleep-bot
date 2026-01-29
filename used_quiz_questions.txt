@@ -219,3 +219,6 @@ What is her favorite type of music?
 Does she prefer going to the beach or mountains on vacation?
 What is her go-to coffee order?
 Does she prefer trying new foods or sticking to what she knows and loves?
+What is his favorite sport to watch?
+Does he prefer a morning person or a night owl?
+What is his go-to order at his favorite fast food place?
